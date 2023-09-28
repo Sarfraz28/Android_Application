@@ -12,28 +12,14 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import com.android.volley.Request;
 import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import org.json.JSONArray;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,47 +36,41 @@ public class MainActivity extends AppCompatActivity {
 
         List<University> universities = new ArrayList<>();
 
-        String apiUrl = "https://universities.hipolabs.com/search";
-        try {
-            //JSONArray jsonArray = new JSONArray(apiUrl);
-            URL url = new URL(apiUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            StringBuilder result = new StringBuilder();
-
-            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream()));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    result.append(line);
-                }
-                reader.close();
-            }
-
-            connection.disconnect();
-
-            // Now, you can parse the JSON response and create a JSONArray
-            JSONArray jsonArray = new JSONArray(result.toString());
-
-            //List<University> universities = new ArrayList<>();
-
-            for (int i = 0; i < jsonArray.length(); i++) {
-                JSONObject jsonObject = jsonArray.getJSONObject(i);
-                String name = jsonObject.optString("name");
-                String country = jsonObject.optString("country");
-                String webPages = jsonObject.optString("web_pages");
-                universities.add(new University(name, country, webPages));
-            }
-
-            // Now you have a list of universities
-        } catch (JSONException | IOException e) {
-            e.printStackTrace();
-        }
-
-        //universities.add(new University("Kharkiv National University", "Ukraine", "https://karazin.ua"))
+        // Fetch data from the URL and populate the RecyclerView
+        fetchData(universities);
 
         adapter = new UniversityAdapter(universities);
         recyclerView.setAdapter(adapter);
+    }
+
+    private void fetchData(List<University> universities) {
+        String apiUrl = "https://universities.hipolabs.com/search";
+
+        RequestQueue queue = Volley.newRequestQueue(this);
+        JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(
+                apiUrl,
+                response -> {
+                    for (int i = 0; i < response.length(); i++) {
+                        try {
+                            JSONObject jsonObject = response.getJSONObject(i);
+                            String name = jsonObject.optString("name");
+                            String country = jsonObject.optString("country");
+                            String webPages = jsonObject.optString("web_pages");
+                            universities.add(new University(name, country, webPages));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    // Notify the adapter that the data has changed
+                    adapter.notifyDataSetChanged();
+                },
+                error -> {
+                    // Handle error
+                }
+        );
+
+        queue.add(jsonArrayRequest);
     }
 
     public class UniversityAdapter extends RecyclerView.Adapter<UniversityAdapter.ViewHolder> {
