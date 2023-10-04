@@ -1,8 +1,8 @@
 package com.example.myapplication_1;
-
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler; // Added import
 import android.text.util.Linkify;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +25,17 @@ public class MainActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private UniversityAdapter adapter;
+    private List<University> universities = new ArrayList<>(); // Initialize the list
+
+    private final Handler dataRefreshHandler = new Handler();
+    private final Runnable dataRefreshRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // Fetch data and update UI
+            fetchData();
+            dataRefreshHandler.postDelayed(this, 10000); // 10000 milliseconds = 10 seconds
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,33 +45,50 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        List<University> universities = new ArrayList<>();
-
-        // Fetch data from the URL and populate the RecyclerView
-        fetchData(universities);
-
         adapter = new UniversityAdapter(universities);
         recyclerView.setAdapter(adapter);
     }
 
-    private void fetchData(List<University> universities) {
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // Start the data refresh runnable when the activity is resumed
+        dataRefreshHandler.post(dataRefreshRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        // Stop the data refresh runnable when the activity is paused to prevent resource leaks
+        dataRefreshHandler.removeCallbacks(dataRefreshRunnable);
+    }
+
+    // Fetch data method
+    private void fetchData() {
         String apiUrl = "https://universities.hipolabs.com/search";
 
         RequestQueue queue = Volley.newRequestQueue(this);
         JsonArrayRequest jsonArrayRequest = new JsonArrayRequest(
                 apiUrl,
                 response -> {
+                    List<University> updatedUniversities = new ArrayList<>();
                     for (int i = 0; i < response.length(); i++) {
                         try {
                             JSONObject jsonObject = response.getJSONObject(i);
                             String name = jsonObject.optString("name");
                             String country = jsonObject.optString("country");
                             String webPages = jsonObject.optString("web_pages");
-                            universities.add(new University(name, country, webPages));
+                            updatedUniversities.add(new University(name, country, webPages));
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
                     }
+
+                    // Clear the existing list and add the updated data
+                    universities.clear();
+                    universities.addAll(updatedUniversities);
 
                     // Notify the adapter that the data has changed
                     adapter.notifyDataSetChanged();
@@ -72,6 +100,8 @@ public class MainActivity extends AppCompatActivity {
 
         queue.add(jsonArrayRequest);
     }
+
+    // Rest of your code...
 
     public class UniversityAdapter extends RecyclerView.Adapter<UniversityAdapter.ViewHolder> {
 
@@ -107,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
                     String url = textView.getText().toString();
                     if (url != null && !url.isEmpty()) {
                         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
+                        v.getContext().startActivity(intent);
                     }
                 }
             });
